@@ -16,7 +16,7 @@
  * =====================================================================================
  */
 #include "field.h"
-//#include "service.h"
+#include "service.h"
 
 #include <iostream>
 #include <string>
@@ -35,10 +35,26 @@ char field[4][4] =
 
 
 int main(){
-
+    Service *service;
     Field *game = new Field (field);
 
-    string newGame;
+    cout << "Выберите режим игры (\x1b[4;1mС\x1b[0mоздать игру, \x1b[4;1mП\x1b[0mоиск игры): ";
+    string choice;
+    cin >> choice;
+
+    if (choice == "С" || choice == "с"){
+        service = new Service(8001);
+        cout << service->HandleConnection() << endl;
+        return 0;
+    }else{
+        if (choice == "П" || choice == "п"){
+            service = new Service("192.168.0.105", 8001);
+            cout << service->SendConnection() << endl;
+            return 0;
+        }
+    }
+
+    /*string newGame;
     do{
         bool win = false;
         bool overflow = false;
