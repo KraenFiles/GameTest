@@ -347,12 +347,6 @@ string SyncEcho(ip::tcp::endpoint ep, std::string msg, Field *game, bool& win, b
 int main(int argc, char* argv[])
 {
     Field *game = new Field ();
-    string tr = game->GetStrField();
-    cout << tr << endl;
-    game->SetSimbol(2, 2, 'X');
-    tr = game->GetStrField();
-    game->SetField(tr);
-    cout << game->GetStrField() << endl;
 
     string arg(argv[1]);
 
