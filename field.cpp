@@ -21,6 +21,7 @@ Field::Field()
     }
 
     RandomChar();
+
 }
 
 Field::Field(char arr[4][4])
@@ -37,7 +38,7 @@ Field::Field(char arr[4][4])
 }
 
 //Расчет и проверка выигрышных комбинаций
-bool Field::CheckWin(int x, int y)
+bool Field::CheckWin(int x, int y, char simbol)
 {
     int* numCombination;
     int sizeArray = 0;
@@ -92,7 +93,7 @@ bool Field::CheckWin(int x, int y)
 
     for(int i = 0; i < sizeArray; i++){
         for(int j = 0; j < 3; j++){
-            if(field[winCombination[numCombination[i]][j][0]][winCombination[numCombination[i]][j][1]] == playerChar){
+            if(field[winCombination[numCombination[i]][j][0]][winCombination[numCombination[i]][j][1]] == simbol){
                 win = true;
             }
             else{

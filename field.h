@@ -10,10 +10,10 @@ public:
 	Field(char arr[4][4]);
 
 	//Установка символа в позицию
-	inline void SetSimbol(uint8_t x, uint8_t y) { field[x][y] = playerChar; }
+    inline void SetSimbol(uint8_t x, uint8_t y, char ch) { field[x][y] = ch; }
 
 	//Расчет и проверка выигрышных комбинаций
-    bool CheckWin(int x, int y);
+    bool CheckWin(int x, int y, char simbol);
 
 	//Очистка таблицы
 	void Clear(char clearArray[4][4]);
@@ -27,10 +27,10 @@ public:
 	//Проверка ничьи
 	bool CheckOverflow();
 
-	inline void SwapGameChar(){ char save = enemyChar; enemyChar = playerChar; playerChar = save; }
-
 	inline char GetPlayerChar(){ return playerChar; }
 	inline char GetEnemyChar() { return enemyChar; }
+
+    inline void SwapSymbols(){ char copy = playerChar; playerChar = enemyChar; enemyChar = copy; }
 
 	inline char GetElement(uint8_t x, uint8_t y) { return field[x][y]; }
 	inline uint8_t GetSize() { return sizeField; }

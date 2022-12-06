@@ -1,6 +1,6 @@
 CC=g++
 CFLAG=-c -Wall
-SOURCES=main.cpp field.cpp service.cpp
+SOURCES=main.cpp field.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=main
 
