@@ -6,8 +6,11 @@
 class Field
 {
 public:
-	Field();
-	Field(char arr[4][4]);
+    Field();//Базовый конструктор
+    Field(char arr[4][4]);//Конструктор установки по шаблону
+    Field(Field& newField);//Конструктор копирования
+
+
 
 
 	//Расчет и проверка выигрышных комбинаций
@@ -19,43 +22,44 @@ public:
 	//Обновление вида таблицы
 	void RefrestField();
 
-	//Рандомизация символов для игры
+    //Случайный выбор символов для игры
 	void RandomChar();
 
 	//Проверка ничьи
 	bool CheckOverflow();
 
+    //Функция смены символов между игроками
     inline void SwapSymbols(){ char copy = playerChar; playerChar = enemyChar; enemyChar = copy; }
 
 
 
-    //Установка символа в позицию
-    inline void SetSimbol(uint8_t x, uint8_t y, char ch) { field[x][y] = ch; }
 
-    void SetField(char clearArray[4][4]);
-    void SetField(std::string strField);
+    inline void SetSimbol(uint8_t x, uint8_t y, char ch) { field[x][y] = ch; }//Установка символа в позицию
+    inline char GetElement(uint8_t x, uint8_t y) { return field[x][y]; }//Получение значения ячейки
 
-    inline void SetName(std::string newName) { name = newName;  }
-    inline void SetEnemyName(std::string newName) { enemyName = newName;  }
+    inline char GetPlayerChar(){ return playerChar; }//Получение символа данного игрока
+    inline char GetEnemyChar() { return enemyChar; }//Получение символа противника
 
+    inline uint8_t GetSize() { return sizeField; }//Получение размера поля
 
+    inline void SetName(std::string newName) { name = newName;  }//Установка имени данного игрока
+    inline std::string GetName() { return name;  }//Получение имени данного игрока
 
-    inline char GetPlayerChar(){ return playerChar; }
-    inline char GetEnemyChar() { return enemyChar; }
+    inline void SetEnemyName(std::string newName) { enemyName = newName;  }//Установка имени противника
+    inline std::string GetEnemyName() { return enemyName;  }//Получение имени противника
 
-	inline char GetElement(uint8_t x, uint8_t y) { return field[x][y]; }
-	inline uint8_t GetSize() { return sizeField; }
+    void SetField(char clearArray[4][4]); //Установка таблицы с шаблона двумерного массива символов
+    void SetField(std::string strField);//Установка таблицы с шаблона строки
 
-    inline std::string GetName() { return name;  }
-    inline std::string GetEnemyName() { return enemyName;  }
-
+    //Получение поля в виде строки
     std::string GetStrField();
 
 
 private:
-	const static uint8_t sizeField = 4;
-	char** field;
+    const static uint8_t sizeField = 4;//Размер таблицы
+    char** field;//Поле игры
 
+    //Выигрышные комбинации
     int winCombination[8][3][2] = {
 		{{1, 1}, {1, 2}, {1,3}},
 		{{2, 1}, {2, 2}, {2,3}},
@@ -67,11 +71,11 @@ private:
 		{{3, 1}, {2, 2}, {1,3}}
 	};
 
-	char playerChar;
-	char enemyChar;
+    char playerChar;//Символ данного игрока
+    char enemyChar;//Символ противника
 
-    std::string name;
-    std::string enemyName;
+    std::string name;//Имя данного игрока
+    std::string enemyName;//Имя противника
 };
 
 #endif // FIELD_H

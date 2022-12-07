@@ -19,7 +19,6 @@
 
 #include <iostream>
 #include <string>
-#include <unistd.h>
 #include <vector>
 #include <regex>
 #include <fstream>
@@ -40,7 +39,7 @@ io_service service;
 string* address; //ip адрес для подключения
 int port = 0; //Порт для подключения
 
-bool firstMsg = true;
+bool firstMsg = true;//Переменная первого сообщения
 
 string winnerName; //Имя выигрывшего игрока
 
@@ -55,13 +54,11 @@ bool TurnGame(Field *game, string coordinate, char simbol, bool& win, bool& over
                 sregex_token_iterator()                                             //
     };                                                                              //
 
-    if(str.size() < 3)  //Условие на выполнение операции чисто с координатами
+    if(str.size() == 2)  //Условие на выполнение операции чисто с координатами
     {
-        //Преобразование в числа значений
 SetCoordinate:
         int y = atoi(str.begin()->c_str());     //Преобразование в числа значений
         int x = atoi((str.begin()+1)->c_str()); //Преобразование в числа значений
-
 
         if((x < game->GetSize() && x > 0) && (y < game->GetSize() && y > 0) && //Проверка введеных позиций
                 ((game->GetElement(x,y) != game->GetPlayerChar()) && (game->GetElement(x,y) != game->GetEnemyChar()))) //Проверка пустоты позиции
@@ -82,7 +79,7 @@ SetCoordinate:
         }
         else
         {
-            cout << "Позиции введены не правильно. Повторите ввод." << endl;
+            cout << "Позиции введены не правильно. Повторите ввод. 1" << endl;
             return false;
         }
     }
@@ -94,27 +91,30 @@ SetCoordinate:
             char newSimbol = (str.begin()+2)->c_str()[0];
             if(newSimbol != game->GetPlayerChar())//Сравнение совпадения символов
             {
-                game->SwapSymbols(); //Смена символов
+                game->SwapSymbols(); //Смена символов игроков между собой
                 simbol = game->GetEnemyChar(); //Изменение символа для данной функции
             }
 
             game->SetEnemyName((str.begin()+3)->c_str());//Установка имени противника
-
             game->RefrestField(); //Обновление таблицы
 
             goto SetCoordinate; //Переход к установке символа
         }
         else
         {
-            if(str.size() == 3 && firstMsg) //Условие для установки имен игроков
+            if(str.size() == 3 && firstMsg)//Условие для синхронизации символов игры и имен игроков
             {
-                game->SetEnemyName((str.begin()+2)->c_str());//Установка имени врага
-                firstMsg = false;
+                game->SetEnemyName((str.begin()+2)->c_str());//Установка имени противника
+                game->RefrestField(); //Обновление таблицы
+                firstMsg = false;//Закрытие приема первого сообщения
 
-                goto SetCoordinate;//Переход к установке символа
+                goto SetCoordinate; //Переход к установке символа
             }
-            cout << "Позиции введены не правильно. Повторите ввод." << endl;
-            return false;
+            else
+            {
+                cout << "Позиции введены не правильно. Повторите ввод. 2" << endl;
+                return false;
+            }
         }
     }
 }
@@ -154,30 +154,50 @@ void SaveResult(bool win)
 
 
 
+
 //Функция обработки данных хостом
-void HandleConnections(Field *game)
+void HandleConnections(Field *game, ip::tcp::acceptor* acceptor, bool& win, bool& overflow)
 {
-    ip::tcp::acceptor acceptor(service, ip::tcp::endpoint(ip::tcp::v4(),port));
-    char buff[1024];
 
-    bool win = false; //Переменная победы
-    bool overflow = false; //Переменная ничьи
+    ip::tcp::socket sock(service);
 
+
+    game->RefrestField(); //Обновление таблицы
+    cout << "Ожидание противника ..." << endl;
+
+    acceptor->accept(sock, ec);//Подключение сокета к ассептору
+    if (ec)
+    {
+        cerr << "Accept failed: \n" << ec.message()<< endl;
+    }
+
+
+    string coordinate;
     do
     {
-start:
-        ip::tcp::socket sock(service);
+        cout << "Введите позицию для символа (пример: горизонталь;вертикаль): " << endl;
+        cin >> coordinate; //Ввод координат для установки символа
+    }
+    while(!TurnGame(game, coordinate, game->GetPlayerChar(), win, overflow)); //Проверка введенных координат и установка символа
 
-        //Обновление таблицы
-        game->RefrestField();
+    //Проверка на отправку первого сообщения
+    if(firstMsg)
+    {
+        sock.write_some(buffer(coordinate+";"+string(1,game->GetEnemyChar())+";"+game->GetName()+"\n"), ec);//Отправка координат, символа противника и имени
+    }
+    else
+    {
+        sock.write_some(buffer(coordinate+"\n"), ec); //Отправка координат
+    }
+    if (ec) //Проверка на коректность отправки сообщения
+    {
+        cerr << "Write failed: \n" << ec.message()<< endl;
+    }
+
+    if(win ^ !overflow) //Условие победы игрока или ничьи
+    {
         cout << "Ожидание противника ..." << endl;
-
-        acceptor.accept(sock, ec);
-        if (ec)
-        {
-            cerr << "Accept failed: \n" << ec.message()<< endl;
-        }
-
+        char buff[1024];
         //Чтение сообщения от клиента
         int bytes = read(sock, buffer(buff),
                          boost::bind(ReadComplete,buff,_1,_2));
@@ -187,157 +207,127 @@ start:
 
         game->RefrestField();//Обновление таблицы
 
-        if(win ^ !overflow)
-        {
-            string coordinate;
-            do
-            {
-                cout << "Введите позицию для символа (пример: горизонталь;вертикаль ): " << endl;
-                cin >> coordinate;
-            }
-            while(!TurnGame(game, coordinate, game->GetPlayerChar(), win, overflow));
-
-            if(firstMsg)
-            {
-                sock.write_some(buffer(coordinate+";"+game->GetName()+"\n"), ec);
-                firstMsg = false;
-            }
-            else
-            {
-                sock.write_some(buffer(coordinate+"\n"), ec);
-            }
-            if (ec)
-            {
-                cerr << "Write failed: \n" << ec.message()<< endl;
-            }
-
-            if(win)
-            {
-                cout << "Ты победил" << endl;
-                winnerName = game->GetName();
-
-            }
-            else
-            {
-                if(overflow)
-                {
-                    cout << "Ничья" << endl;
-                    winnerName = game->GetName()+"\40" + game->GetEnemyName();
-                }
-            }
-        }
-        else
-        {
-            if(win)
-            {
-                cout << "Победил противник" << endl;
-                winnerName = game->GetEnemyName();
-            }
-            else
-            {
-                if(overflow)
-                {
-                    cout << "Ничья" << endl;
-                    winnerName = game->GetName()+"\40" + game->GetEnemyName();
-                }
-            }
-        }
-        sock.close();
-    }
-    while(win ^ !overflow);
-
-    string newGame;
-EnterWrite:
-    cout << "Хотите сохранить результат? \x1b[4;1mД\x1b[0mа/\x1b[4;1mН\x1b[0mет" << endl;
-    cin >> newGame;
-
-    if(newGame == "д" || newGame == "Д")
-    {
-        SaveResult(win);
-    }
-    else
-    {
-        if((newGame != "Н") ^ (newGame == "н"))
-        {
-            cout << "Такой команды нет. Повторите ввод." << endl;
-            goto EnterWrite;
-        }
-    }
-
-EnterExit:
-    cout << "\x1b[4;1mВ\x1b[0mыйти из игры или \x1b[4;1mн\x1b[0mачать заново?" << endl;
-    cin >> newGame;
-
-    if(newGame == "н" || newGame == "Н")
-    {
-        game->Clear();
-        win = false;
-        overflow = false;
-        goto start;
-    }
-    else
-    {
-        if((newGame != "В") ^ (newGame == "в"))
-        {
-            cout << "Такой команды нет. Повторите ввод." << endl;
-            goto EnterExit;
-        }
-    }
-}
-
-
-
-
-
-string SyncEcho(ip::tcp::endpoint ep, std::string msg, Field *game, bool& win, bool& overflow)
-{
-    msg += "\n";
-    ip::tcp::socket sock(service);
-
-    sock.connect(ep, ec);
-    if (ec)
-    {
-        cerr << "Connection failed: \n" << ec.message()<< endl;
-    }
-
-    sock.write_some(buffer(msg), ec);
-    if (ec)
-    {
-        cerr << "Write failed: \n" << ec.message()<< endl;
-    }
-
-    string copy = "";
-
-    if(win ^ !overflow)
-    {
-        cout << "Ожидание противника ..." << endl;
-        char buff[1024];
-        int bytes = read(sock, buffer(buff),
-                         boost::bind(ReadComplete,buff,_1,_2));
-
-        copy = string(buff, bytes - 1);
-
-    }
-    else
-    {
         if(win)
         {
-            cout << "Ты победил" << endl;
-            winnerName = game->GetName();
+            cout << "Победил противник" << endl;
+            winnerName = game->GetEnemyName(); //Запись противника в победители
         }
         else
         {
             if(overflow)
             {
                 cout << "Ничья" << endl;
-                winnerName = game->GetName() + "\40" + game->GetEnemyName();
+                winnerName = game->GetName() + "\40" + game->GetEnemyName(); //Запись обоих игроков как ничья
+            }
+        }
+    }
+    else
+    {
+        if(win) //Проверка победы игрока
+        {
+            cout << "Ты победил" << endl;
+            winnerName = game->GetName();//Запись игрока в победители
+
+        }
+        else
+        {
+            if(overflow) //Проверка ничьи
+            {
+                cout << "Ничья" << endl;
+                winnerName = game->GetName()+"\40" + game->GetEnemyName();//Запись обоих игроков как ничья
             }
         }
     }
 
-    sock.close();
+    sock.close();//Закрытие сокета
+}
 
-    return copy;
+
+
+
+//Функция отправли сообщения со стороны клиента
+void SyncEcho(ip::tcp::endpoint* ep, Field *game, bool& win, bool& overflow)
+{
+    ip::tcp::socket sock(service);//Создание сокета
+
+    sock.connect(*ep, ec);//Подключение сокета к ip адресу
+    if (ec)
+    {
+        cerr << "Connection failed: \n" << ec.message()<< endl;
+    }
+
+    cout << "Ожидание противника ..." << endl;
+
+    //Чтение ответа с сервера
+    char buff[1024];
+    int bytes = read(sock, buffer(buff),
+                     boost::bind(ReadComplete,buff,_1,_2));
+
+    game->RefrestField();//Обновление таблицы
+    string copy(buff, bytes - 1);
+
+    TurnGame(game, copy, game->GetEnemyChar(), win, overflow); //Установка полученного символа и проверка победы
+    game->RefrestField();//Обновление таблицы
+
+    if(win ^ !overflow)//Проверка победы или ничьи
+    {
+        string coordinate;
+
+        do
+        {
+            cout << "Введите позицию для символа (пример: горизонталь;вертикаль ): " << endl;
+            cin >> coordinate;//Ввод координат для установки символа
+        }
+        while(!TurnGame(game, coordinate, game->GetPlayerChar(), win, overflow));//Проверка введенных координат и установка символа
+
+
+        if(firstMsg)//Проверка на отправку первого сообщения
+        {
+            sock.write_some(buffer(coordinate+";"+game->GetName()+"\n"), ec);//Отправка координат и имени
+            firstMsg = false;//Закрытие приема первого сообщения
+        }
+        else
+        {
+            sock.write_some(buffer(coordinate+"\n"), ec);//Отправка координат
+        }
+
+        if (ec)
+        {
+            cerr << "Write failed: \n" << ec.message()<< endl;
+        }
+
+        if(win)//Проверка победы игрока
+        {
+            cout << "Ты победил" << endl;
+            winnerName = game->GetName();//Запись игрока в победители
+        }
+        else
+        {
+            if(overflow)//Проверка ничьи
+            {
+                cout << "Ничья" << endl;
+                winnerName = game->GetName() + "\40" + game->GetEnemyName();//Запись обоих игроков как ничья
+            }
+        }
+    }
+    else
+    {
+        if(win)//Проверка победы противника
+        {
+            cout << "Победил противник" << endl;
+            winnerName = game->GetEnemyName();//Запись противника в победители
+        }
+        else
+        {
+            if(overflow)//Проверка ничьи
+            {
+                cout << "Ничья" << endl;
+                winnerName = game->GetName() + "\40" + game->GetEnemyName();//Запись обоих игроков как ничья
+            }
+        }
+    }
+
+    sock.close();//Закрытие сокета
 }
 
 
@@ -346,131 +336,63 @@ string SyncEcho(ip::tcp::endpoint ep, std::string msg, Field *game, bool& win, b
 
 int main(int argc, char* argv[])
 {
-    Field *game = new Field ();
+    Field *game = new Field ();//Создание поля для игры
 
-    string arg(argv[1]);
-
-    //Разделение строки для преобразования
-    static const regex rdelim{":"};
-    vector<string> str{
-        sregex_token_iterator(arg.begin(), arg.end(), rdelim, -1),
-                sregex_token_iterator()
-    };
-
-    if(str.size() == 2)
+    if(argc == 2)//Проверка количества аргументов у программы
     {
-    address = new string(str.begin()->c_str());
-    port = atoi((str.begin()+1)->c_str());
+        string arg(argv[1]);//Получение первого аргумента
+
+        //Разделение строки для преобразования
+        static const regex rdelim{":"};
+        vector<string> str{
+            sregex_token_iterator(arg.begin(), arg.end(), rdelim, -1),
+                    sregex_token_iterator()
+        };
+
+        if(str.size() == 2)//Проверка правильности введения ip адреса с сокетом
+        {
+            address = new string(str.begin()->c_str());//Назначение ip адреса
+            port = atoi((str.begin()+1)->c_str());     //Назначение порта
+        }
+        else
+        {
+            cout << "Ошибка аргументов" << endl;
+            return 1;
+        }
     }
     else
     {
         cout << "Ошибка аргументов" << endl;
+        return 1;
     }
+
+    ip::tcp::endpoint* ep;
+    ip::tcp::acceptor* acceptor;
+
 
     cout << "Введите имя: ";
     string name;
-    cin >> name;
+    cin >> name;//Ввод имени
 
-    game->SetName(name);
+    game->SetName(name);//Установка имени
 
     string choice;
-    bool win = false;
-    bool overflow = false;
+    bool win = false;//Инициализация пременной победы
+    bool overflow = false;//Инициализация пременной ничьи
 
 EnterMode:
     cout << "Выберите режим игры (\x1b[4;1mС\x1b[0mоздать игру, \x1b[4;1mП\x1b[0mоиск игры): ";
-    cin >> choice;
+    cin >> choice; //Ввод выбора подключения или создания хоста
 
     if (choice == "С" || choice == "с")
     {
-        HandleConnections(game);
+        acceptor = new ip::tcp::acceptor(service, ip::tcp::endpoint(ip::tcp::v4(), port));//Инициализация ассептора для хоста
     }
     else
     {
         if (choice == "П" || choice == "п")
         {
-
-            ip::tcp::endpoint ep(ip::address::from_string(*address), port);
-
-            do
-            {
-start:
-                game->RefrestField();
-
-                string coordinate;
-
-                do
-                {
-                    cout << "Введите позицию для символа (пример: горизонталь;вертикаль ): " << endl;
-                    cin >> coordinate;
-                }
-                while(!TurnGame(game, coordinate, game->GetPlayerChar(), win, overflow));
-
-                string result;
-                if(firstMsg)
-                    result = SyncEcho(ep, coordinate+";"+string(1,game->GetEnemyChar())+";"+name, game, win, overflow);
-                else
-                    result = SyncEcho(ep, coordinate, game, win, overflow);
-
-                if(win ^ !overflow)
-                {
-                    TurnGame(game, result, game->GetEnemyChar(), win, overflow);
-
-                    if(win)
-                    {
-                        cout << "Противник победил" << endl;
-                        winnerName = game->GetName();
-                    }
-                    else
-                    {
-                        if(overflow)
-                        {
-                            cout << "Ничья" << endl;
-                            winnerName = game->GetName() + "\40" + game->GetEnemyName();
-                        }
-                    }
-                }
-
-            }
-            while(win ^ !overflow);
-
-            string newGame;
-EnterWrite:
-            cout << "Хотите сохранить результат? \x1b[4;1mД\x1b[0mа/\x1b[4;1mН\x1b[0mет" << endl;
-            cin >> newGame;
-
-            if(newGame == "д" || newGame == "Д")
-            {
-                SaveResult(win);
-            }
-            else
-            {
-                if((newGame != "Н") ^ (newGame == "н"))
-                {
-                    cout << "Такой команды нет. Повторите ввод." << endl;
-                    goto EnterWrite;
-                }
-            }
-
-EnterExit:
-            cout << "\x1b[4;1mВ\x1b[0mыйти из игры или \x1b[4;1mн\x1b[0mачать заново?" << endl;
-            cin >> newGame;
-
-            if(newGame == "н" || newGame == "Н")
-            {
-                game->Clear();
-                win = false;
-                overflow = false;
-                goto start;
-            }
-            else
-            {
-                if((newGame != "В") ^ (newGame == "в"))
-                {
-                    cout << "Такой команды нет. Повторите ввод." << endl;
-                    goto EnterExit;
-                }
-            }
+            ep = new ip::tcp::endpoint(ip::address::from_string(*address), port);//Инициализация точки подключения для клиента
         }
         else
         {
@@ -478,5 +400,68 @@ EnterExit:
             goto EnterMode;
         }
     }
+
+
+start:
+
+
+    do
+    {
+        if (choice == "С" || choice == "с")
+        {
+            HandleConnections(game, acceptor, win, overflow);//Операции со стороны хоста
+        }
+        else
+        {
+            if (choice == "П" || choice == "п")
+            {
+                SyncEcho(ep, game, win, overflow);//Операции со стороны клиента
+            }
+        }
+
+    }
+    while(win ^ !overflow);//Условие цикла победы или ничьи
+
+    string newGame;
+
+
+EnterWrite:
+    cout << "Хотите сохранить результат? \x1b[4;1mД\x1b[0mа/\x1b[4;1mН\x1b[0mет" << endl;
+    cin >> newGame;
+
+    if(newGame == "д" || newGame == "Д")
+    {
+        SaveResult(win);//Сохрание результата
+    }
+    else
+    {
+        if((newGame != "Н") ^ (newGame == "н"))
+        {
+            cout << "Такой команды нет. Повторите ввод." << endl;
+            goto EnterWrite;//Переход к повторному вводу
+        }
+    }
+
+
+EnterExit:
+    cout << "\x1b[4;1mВ\x1b[0mыйти из игры или \x1b[4;1mн\x1b[0mачать заново?" << endl;
+    cin >> newGame;
+
+    if(newGame == "н" || newGame == "Н")
+    {
+        game->Clear();//Очистка поля для новой игры
+        win = false;//Очистка значения победы
+        overflow = false;//Очистка значения ничьи
+        goto start;//Переход к циклу игры
+    }
+    else
+    {
+        if((newGame != "В") ^ (newGame == "в"))
+        {
+            cout << "Такой команды нет. Повторите ввод." << endl;
+            goto EnterExit;//Переход к повторному вводу
+        }
+    }
+
     return 0;
 }

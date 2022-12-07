@@ -5,6 +5,7 @@
 
 using namespace std;
 
+//Стандартный конструктор
 Field::Field()
 {
     char clearArray[sizeField][sizeField] = {{' ', '1', '2', '3' },
@@ -25,6 +26,7 @@ Field::Field()
     RandomChar();
 }
 
+//Конструктор по шаблону
 Field::Field(char arr[4][4])
 {
     field = new char*[sizeField];
@@ -38,6 +40,16 @@ Field::Field(char arr[4][4])
     }
 
     RandomChar();
+}
+
+//Конструктор копирования
+Field::Field(Field &newField)
+{
+    this->field = newField.field;
+    this->playerChar = newField.playerChar;
+    this->enemyChar = newField.enemyChar;
+    this->name = newField.name;
+    this->enemyName = newField.enemyName;
 }
 
 //Расчет и проверка выигрышных комбинаций
@@ -115,6 +127,7 @@ bool Field::CheckWin(int x, int y, char simbol)
         }
     }
 
+    //Проверка комбинаций на победу
     for(int i = 0; i < sizeArray; i++)
     {
         for(int j = 0; j < 3; j++)
@@ -152,7 +165,7 @@ void Field::Clear()
     }
 }
 
-//Очистка таблицы по шаблону
+//Установка таблицы по шаблону
 void Field::SetField(char clearArray[4][4])
 {
     for(int i = 0; i < sizeField; i++)
@@ -164,6 +177,7 @@ void Field::SetField(char clearArray[4][4])
     }
 }
 
+//Установка таблицы из строки
 void Field::SetField(std::string strField)
 {
     int stringIndex = 0;
@@ -178,6 +192,7 @@ void Field::SetField(std::string strField)
     }
 }
 
+//Получение таблицы в виде строки
 std::string Field::GetStrField()
 {
     std::string result = "";
