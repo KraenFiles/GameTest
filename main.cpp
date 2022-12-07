@@ -171,6 +171,7 @@ void HandleConnections(Field *game, ip::tcp::acceptor* acceptor, bool& win, bool
         cerr << "Accept failed: \n" << ec.message()<< endl;
     }
 
+    game->RefrestField(); //Обновление таблицы
 
     string coordinate;
     do
@@ -275,7 +276,7 @@ void SyncEcho(ip::tcp::endpoint* ep, Field *game, bool& win, bool& overflow)
 
         do
         {
-            cout << "Введите позицию для символа (пример: горизонталь;вертикаль ): " << endl;
+            cout << "Введите позицию для символа (пример: горизонталь;вертикаль): " << endl;
             cin >> coordinate;//Ввод координат для установки символа
         }
         while(!TurnGame(game, coordinate, game->GetPlayerChar(), win, overflow));//Проверка введенных координат и установка символа
