@@ -52,6 +52,12 @@ Field::Field(Field &newField)
     this->enemyName = newField.enemyName;
 }
 
+
+Field::~Field()
+{
+    delete [] field;
+}
+
 //Расчет и проверка выигрышных комбинаций
 bool Field::CheckWin(int x, int y, char simbol)
 {
@@ -226,26 +232,18 @@ void Field::RefrestField()
 //Проверка ничьи
 bool Field::CheckOverflow()
 {
-    bool result = false;
-
-    for(int i = 0; i < sizeField; i++)
+    for(int i = 1; i < sizeField; i++)
     {
-        for(int j = 0; j < sizeField; j++)
+        for(int j = 1; j < sizeField; j++)
         {
-            if(i == 0 && j == 0)
-                continue;
-            if(field[i][j] != ' ')
-            {
-                result = true;
-            }
-            else
+            if(field[i][j] == ' ')
             {
                 return false;
             }
         }
     }
 
-    return result;
+    return true;
 }
 
 //Рандомизация символов для игры

@@ -54,38 +54,51 @@ bool TurnGame(Field *game, string coordinate, char simbol, bool& win, bool& over
                 sregex_token_iterator()                                             //
     };                                                                              //
 
-    if(str.size() == 2)  //Условие на выполнение операции чисто с координатами
+    bool checkSize = 0;
+    size_t sizeMsg = str.size();
+
+    while(!checkSize)
     {
-SetCoordinate:
-        int y = atoi(str.begin()->c_str());     //Преобразование в числа значений
-        int x = atoi((str.begin()+1)->c_str()); //Преобразование в числа значений
-
-        if((x < game->GetSize() && x > 0) && (y < game->GetSize() && y > 0) && //Проверка введеных позиций
-                ((game->GetElement(x,y) != game->GetPlayerChar()) && (game->GetElement(x,y) != game->GetEnemyChar()))) //Проверка пустоты позиции
+        switch (sizeMsg)
         {
-            //Установка символа в позицию
-            game->SetSimbol(x, y, simbol);
-
-            //Обновление таблицы
-            game->RefrestField();
-
-            //Проверка победы
-            win = game->CheckWin(x, y, simbol);
-
-            //Проверка на наличие пустых мест
-            overflow = game->CheckOverflow();
-
-            return true;
-        }
-        else
+        case 2:
         {
-            cout << "Позиции введены не правильно. Повторите ввод." << endl;
-            return false;
+            int y = atoi(str.begin()->c_str());     //Преобразование в числа значений
+            int x = atoi((str.begin()+1)->c_str()); //Преобразование в числа значений
+
+            if(((game->GetElement(x,y) != game->GetPlayerChar()) && (game->GetElement(x,y) != game->GetEnemyChar()))) //Проверка пустоты позиции
+            {
+                //Установка символа в позицию
+                game->SetSimbol(x, y, simbol);
+
+                //Обновление таблицы
+                game->RefrestField();
+
+                //Проверка победы
+                win = game->CheckWin(x, y, simbol);
+
+                //Проверка на наличие пустых мест
+                overflow = game->CheckOverflow();
+                checkSize = 1;
+
+                return true;
+            }
+            else
+            {
+                cout << "Данная позиция занята, введите другую." << endl;
+                return false;
+            }
         }
-    }
-    else
-    {
-        if(str.size() == 4 && firstMsg)//Условие для синхронизации символов игры и имен игроков
+        case 3:
+        {
+            game->SetEnemyName((str.begin()+2)->c_str());//Установка имени противника
+            game->RefrestField(); //Обновление таблицы
+            firstMsg = false;//Закрытие приема первого сообщения
+            sizeMsg = 2;
+            break;
+        }
+
+        case 4:
         {
             //Синхронизация символов
             char newSimbol = (str.begin()+2)->c_str()[0];
@@ -97,24 +110,15 @@ SetCoordinate:
 
             game->SetEnemyName((str.begin()+3)->c_str());//Установка имени противника
             game->RefrestField(); //Обновление таблицы
-
-            goto SetCoordinate; //Переход к установке символа
+            sizeMsg = 2;
+            break;
         }
-        else
-        {
-            if(str.size() == 3 && firstMsg)//Условие для синхронизации символов игры и имен игроков
-            {
-                game->SetEnemyName((str.begin()+2)->c_str());//Установка имени противника
-                game->RefrestField(); //Обновление таблицы
-                firstMsg = false;//Закрытие приема первого сообщения
 
-                goto SetCoordinate; //Переход к установке символа
-            }
-            else
-            {
-                cout << "Позиции введены не правильно. Повторите ввод." << endl;
-                return false;
-            }
+        default:
+        {
+            cout << "Позиции введены не правильно. Повторите ввод." << endl;
+            return false;
+        }
         }
     }
 }
@@ -127,11 +131,11 @@ size_t ReadComplete(char * buff, const error_code & err, size_t bytes)
     //Вывод ошибки для чтения
     if (err)
     {
-        cerr << "Read failed: \n" << err.message()<< endl;
+        cerr << "Ошибка чтения сообщения: \n" << err.message()<< endl;
         return false;
     }
 
-    bool found = std::find(buff, buff + bytes, '\n') < buff + bytes;//Проверка на наличие конечного символа
+    bool found = find(buff, buff + bytes, '\n') < buff + bytes;//Проверка на наличие конечного символа
     return found ? 0 : 1;
 }
 
@@ -168,7 +172,7 @@ void HandleConnections(Field *game, ip::tcp::acceptor* acceptor, bool& win, bool
     acceptor->accept(sock, ec);//Подключение сокета к ассептору
     if (ec)
     {
-        cerr << "Accept failed: \n" << ec.message()<< endl;
+        cerr << "Ошибка создания соединения: \n" << ec.message()<< endl;
     }
 
     game->RefrestField(); //Обновление таблицы
@@ -176,8 +180,19 @@ void HandleConnections(Field *game, ip::tcp::acceptor* acceptor, bool& win, bool
     string coordinate;
     do
     {
-        cout << "Введите позицию для символа (пример: горизонталь;вертикаль): " << endl;
-        cin >> coordinate; //Ввод координат для установки символа
+        regex enterCoordinateReg("([1-3]+?)\;([1-3]+?)");//Шаблон для проверки ввода
+        bool checkCoordinates = 0;
+        do
+        {
+            cout << "Введите позицию для символа (пример: вертикаль;горизонталь): " << endl;
+            cin >> coordinate; //Ввод координат для установки символа
+
+            checkCoordinates = !regex_match(coordinate,enterCoordinateReg);//Проверка введенных координат
+            if(checkCoordinates){
+                cout << "Позиция символа была введена неправильно. Повторите попытку." << endl;
+            }
+        }
+        while(checkCoordinates);
     }
     while(!TurnGame(game, coordinate, game->GetPlayerChar(), win, overflow)); //Проверка введенных координат и установка символа
 
@@ -192,10 +207,10 @@ void HandleConnections(Field *game, ip::tcp::acceptor* acceptor, bool& win, bool
     }
     if (ec) //Проверка на коректность отправки сообщения
     {
-        cerr << "Write failed: \n" << ec.message()<< endl;
+        cerr << "Ошибка отправки сообщения: \n" << ec.message()<< endl;
     }
 
-    if(win ^ !overflow) //Условие победы игрока или ничьи
+    if(!(win || overflow)) //Условие победы игрока или ничьи
     {
         cout << "Ожидание противника ..." << endl;
         char buff[1024];
@@ -254,7 +269,7 @@ void SyncEcho(ip::tcp::endpoint* ep, Field *game, bool& win, bool& overflow)
     sock.connect(*ep, ec);//Подключение сокета к ip адресу
     if (ec)
     {
-        cerr << "Connection failed: \n" << ec.message()<< endl;
+        cerr << "Ошибка соединения с противником: \n" << ec.message()<< endl;
     }
 
     cout << "Ожидание противника ..." << endl;
@@ -270,14 +285,25 @@ void SyncEcho(ip::tcp::endpoint* ep, Field *game, bool& win, bool& overflow)
     TurnGame(game, copy, game->GetEnemyChar(), win, overflow); //Установка полученного символа и проверка победы
     game->RefrestField();//Обновление таблицы
 
-    if(win ^ !overflow)//Проверка победы или ничьи
+    if(!(win || overflow))//Проверка победы или ничьи
     {
         string coordinate;
 
         do
         {
-            cout << "Введите позицию для символа (пример: горизонталь;вертикаль): " << endl;
-            cin >> coordinate;//Ввод координат для установки символа
+            regex enterCoordinateReg("([1-3]+?)\;([1-3]+?)");//Шаблон для проверки ввода
+            bool checkCoordinates = 0;
+            do
+            {
+                cout << "Введите позицию для символа (пример: вертикаль;горизонталь): " << endl;
+                cin >> coordinate; //Ввод координат для установки символа
+
+                checkCoordinates = !regex_match(coordinate,enterCoordinateReg);//Проверка введенных координат
+                if(checkCoordinates){
+                    cout << "Позиция символа была введена неправильно. Повторите попытку." << endl;
+                }
+            }
+            while(checkCoordinates);
         }
         while(!TurnGame(game, coordinate, game->GetPlayerChar(), win, overflow));//Проверка введенных координат и установка символа
 
@@ -294,7 +320,7 @@ void SyncEcho(ip::tcp::endpoint* ep, Field *game, bool& win, bool& overflow)
 
         if (ec)
         {
-            cerr << "Write failed: \n" << ec.message()<< endl;
+            cerr << "Ошибка отправки сообщения: \n" << ec.message()<< endl;
         }
 
         if(win)//Проверка победы игрока
@@ -344,26 +370,23 @@ int main(int argc, char* argv[])
         string arg(argv[1]);//Получение первого аргумента
 
         //Разделение строки для преобразования
-        static const regex rdelim{":"};
-        vector<string> str{
-            sregex_token_iterator(arg.begin(), arg.end(), rdelim, -1),
-                    sregex_token_iterator()
-        };
+        regex ipv4("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\:([0-9]+?)$");
 
-        if(str.size() == 2)//Проверка правильности введения ip адреса с сокетом
+        if(regex_match(arg, ipv4))//Проверка правильности введения ip адреса с сокетом
         {
-            address = new string(str.begin()->c_str());//Назначение ip адреса
-            port = atoi((str.begin()+1)->c_str());     //Назначение порта
+            size_t pos = arg.find(":");
+            address = new string(arg.substr(0, pos));//Назначение ip адреса
+            port = atoi((arg.substr(pos+1)).c_str());//Назначение порта
         }
         else
         {
-            cout << "Ошибка аргументов" << endl;
+            cout << "Ip адрес и порт введены не корректно." << endl;
             return 1;
         }
     }
     else
     {
-        cout << "Ошибка аргументов" << endl;
+        cout << "Не был введен ip адрес и порт игрока." << endl;
         return 1;
     }
 
@@ -377,92 +400,120 @@ int main(int argc, char* argv[])
 
     game->SetName(name);//Установка имени
 
-    string choice;
+    char choice(0);
     bool win = false;//Инициализация пременной победы
     bool overflow = false;//Инициализация пременной ничьи
 
-EnterMode:
-    cout << "Выберите режим игры (\x1b[4;1mС\x1b[0mоздать игру, \x1b[4;1mП\x1b[0mоиск игры): ";
-    cin >> choice; //Ввод выбора подключения или создания хоста
+    while(!choice)
+    {
+        cout << "Выберите режим игры (\x1b[4;1mC\x1b[0mreate, \x1b[4;1mS\x1b[0mearch): ";
+        cin >> choice; //Ввод выбора подключения или создания хоста
 
-    if (choice == "С" || choice == "с")
-    {
-        acceptor = new ip::tcp::acceptor(service, ip::tcp::endpoint(ip::tcp::v4(), port));//Инициализация ассептора для хоста
-    }
-    else
-    {
-        if (choice == "П" || choice == "п")
+        switch (choice)
+        {
+        case 'c': case 'C':
+        {
+            acceptor = new ip::tcp::acceptor(service, ip::tcp::endpoint(ip::tcp::v4(), port));//Инициализация ассептора для хоста
+            break;
+        }
+        case 's': case 'S':
         {
             ep = new ip::tcp::endpoint(ip::address::from_string(*address), port);//Инициализация точки подключения для клиента
+            delete address;
+            break;
         }
-        else
+        default:
         {
             cout << "Такой команды нет. Повторите ввод." << endl;
-            goto EnterMode;
+            choice = 0;
+        }
         }
     }
 
-
-start:
-
-
+    bool startNewGame = true;
     do
     {
-        if (choice == "С" || choice == "с")
+        do
         {
-            HandleConnections(game, acceptor, win, overflow);//Операции со стороны хоста
-        }
-        else
-        {
-            if (choice == "П" || choice == "п")
+            if (choice == 'c' || choice == 'C')
             {
-                SyncEcho(ep, game, win, overflow);//Операции со стороны клиента
+                HandleConnections(game, acceptor, win, overflow);//Операции со стороны хоста
+            }
+            else
+            {
+                if (choice == 's' || choice == 'S')
+                {
+                    SyncEcho(ep, game, win, overflow);//Операции со стороны клиента
+                }
+            }
+
+        }
+        while(!(win || overflow));//Условие цикла победы или ничьи
+
+
+
+        char saveResult(0);
+
+        while(!saveResult)
+        {
+            cout << "Хотите сохранить результат? (Y/N)" << endl;
+            cin >> saveResult;
+
+            switch (saveResult)
+            {
+            case 'y': case 'Y':
+            {
+                SaveResult(win);//Сохрание результата
+                break;
+            }
+            case 'n': case 'N':
+            {
+                break;
+            }
+            default:
+            {
+                cout << "Такой команды нет. Повторите ввод." << endl;
+                saveResult = 0;
+            }
             }
         }
 
-    }
-    while(win ^ !overflow);//Условие цикла победы или ничьи
+        char newGame(0) ;
 
-    string newGame;
-
-
-EnterWrite:
-    cout << "Хотите сохранить результат? \x1b[4;1mД\x1b[0mа/\x1b[4;1mН\x1b[0mет" << endl;
-    cin >> newGame;
-
-    if(newGame == "д" || newGame == "Д")
-    {
-        SaveResult(win);//Сохрание результата
-    }
-    else
-    {
-        if((newGame != "Н") ^ (newGame == "н"))
+        while(!newGame)
         {
-            cout << "Такой команды нет. Повторите ввод." << endl;
-            goto EnterWrite;//Переход к повторному вводу
+            cout << "Начать новую игру? (Y/N)" << endl;
+            cin >> newGame;
+
+            switch (newGame)
+            {
+            case 'n': case 'N':
+            {
+                startNewGame = false;
+                break;
+            }
+
+            case 'y': case 'Y':
+            {
+                game->Clear();//Очистка поля для новой игры
+                win = false;//Очистка значения победы
+                overflow = false;//Очистка значения ничьи
+                startNewGame = true;
+                break;
+            }
+            default:
+            {
+                cout << "Такой команды нет. Повторите ввод." << endl;
+                newGame = 0;
+            }
+            }
         }
     }
+    while(startNewGame);
 
-
-EnterExit:
-    cout << "\x1b[4;1mВ\x1b[0mыйти из игры или \x1b[4;1mн\x1b[0mачать заново?" << endl;
-    cin >> newGame;
-
-    if(newGame == "н" || newGame == "Н")
-    {
-        game->Clear();//Очистка поля для новой игры
-        win = false;//Очистка значения победы
-        overflow = false;//Очистка значения ничьи
-        goto start;//Переход к циклу игры
-    }
-    else
-    {
-        if((newGame != "В") ^ (newGame == "в"))
-        {
-            cout << "Такой команды нет. Повторите ввод." << endl;
-            goto EnterExit;//Переход к повторному вводу
-        }
-    }
+    delete ep;
+    delete acceptor;
+    delete game;
 
     return 0;
 }
