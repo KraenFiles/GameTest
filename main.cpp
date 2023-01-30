@@ -124,7 +124,6 @@ bool TurnGame(Field *game, string coordinate, char simbol, bool& win, bool& over
 }
 
 
-
 //Функция для проверки окончания сообщения
 size_t ReadComplete(char * buff, const error_code & err, size_t bytes)
 {
